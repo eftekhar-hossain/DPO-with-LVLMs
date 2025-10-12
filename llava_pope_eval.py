@@ -18,6 +18,7 @@ from PIL import Image
 import torch
 from transformers import AutoProcessor, AutoModelForVision2Seq
 from peft import PeftModel
+from metrics.pope_calculator import PopeCalculator
 
 
 def load_model(model_name, dpo_checkpoint=None, device="cuda"):
@@ -47,13 +48,15 @@ def evaluate_pope(model, processor, pope_path, coco_path, set_name, type_name, o
     """
     # Determine dataset file
     if set_name == "random":
-        questions_file = os.path.join(pope_path, "output/coco/coco_pope_random.json")
+        questions_file = os.path.join(pope_path, "coco_pope_random.json")
     elif set_name == "popular":
-        questions_file = os.path.join(pope_path, "output/coco/coco_pope_popular.json")
+        questions_file = os.path.join(pope_path, "coco_pope_popular.json")
     elif set_name == "adv":
-        questions_file = os.path.join(pope_path, "output/coco/coco_pope_adversarial.json")
+        questions_file = os.path.join(pope_path, "coco_pope_adversarial.json")
     else:
         raise ValueError(f"Unknown set: {set_name}")
+    
+    answer_file = f"pope_{set_name}_{type_name}.jsonl"
 
     # Load questions
     with open(questions_file, "r") as f:
@@ -105,13 +108,14 @@ def evaluate_pope(model, processor, pope_path, coco_path, set_name, type_name, o
 
     # Save results
     os.makedirs(output_dir, exist_ok=True)
-    out_file = os.path.join(output_dir, f"pope_{set_name}_{type_name}.jsonl")
+    out_file = os.path.join(output_dir, answer_file)
     with open(out_file, "w") as f:
         for r in results:
             f.write(json.dumps(r) + "\n")
 
     print(f"Saved predictions to {out_file}")
-    return results
+    # Could do this in memory, but use artifacts on disk for now
+    return (questions_file, answer_file)
 
 def main(args):
 
@@ -120,7 +124,7 @@ def main(args):
 
     model = load_model(args.model_name, args.dpo_checkpoint)
 
-    results = evaluate_pope(
+    questions, answers = evaluate_pope(
         model=model,
         processor=processor,
         pope_path=args.pope_path,
@@ -129,7 +133,10 @@ def main(args):
         type_name=args.model_type,
         output_dir=args.output_dir
     )
-    print("Evaluation completed.")
+    print("Benchmark: POPE done.")
+    calc = PopeCalculator()
+    calc.parse(answers, questions)
+    print(calc.calculate_results())
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Evaluate LLaVA model on POPE benchmark")

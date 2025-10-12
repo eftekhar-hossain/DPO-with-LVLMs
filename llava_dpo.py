@@ -52,7 +52,6 @@ def parse_args():
     parser.add_argument("--use_lora", action="store_true", help="Apply LoRA fine-tuning to reduce memory use.")
     parser.add_argument("--gradient_checkpointing", action="store_true",
                         help="Enable gradient checkpointing to save memory.")
-    
     return parser.parse_args()
 
 
@@ -68,7 +67,7 @@ def format_llava(example, processor):
         dict: Processed example with prompt, chosen, rejected, and resized images.
     """
     # Handle image input (ensure list)
-    images = [example["image_path"]] if not isinstance(example["image_path"], list) else example["image_path"]
+    images = [example["image"]] if not isinstance(example["image"], list) else example["image"]
 
     # Build chat messages
     prompt = [{"role": "user", "content": [{"type": "image"} for _ in images] +

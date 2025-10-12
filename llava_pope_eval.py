@@ -115,7 +115,7 @@ def evaluate_pope(model, processor, pope_path, coco_path, set_name, type_name, o
 
     print(f"Saved predictions to {out_file}")
     # Could do this in memory, but use artifacts on disk for now
-    return (questions_file, answer_file)
+    return (questions_file, out_file)
 
 def main(args):
 

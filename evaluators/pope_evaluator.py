@@ -7,10 +7,10 @@ from tqdm import tqdm
 
 class PopeEvaluator(Evaluator):
     def __init__(self, args):
-        self.pope_path=args.pope_path,
-        self.coco_path=args.coco_path,
-        self.set_name=args.set_name,
-        self.type_name=args.model_type,
+        self.pope_path=args.pope_path
+        self.coco_path=args.coco_path
+        self.set_name=args.set_name
+        self.type_name=args.model_type
         self.output_dir=args.output_dir
 
     def eval(self, model, processor):

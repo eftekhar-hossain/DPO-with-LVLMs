@@ -1,0 +1,3 @@
+[submodule "AMBER"]
+	path = AMBER
+	url = git@github.com:junyangwang0410/AMBER.git

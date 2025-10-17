@@ -65,11 +65,8 @@ class AmberEvaluator(Evaluator):
         os.makedirs(self.output_dir, exist_ok=True)
         out_file = os.path.join(self.output_dir, inference_file)
         with open(out_file, "w") as f:
-            #f.write("[\n")
             for inf in inferences:
-                #f.write("\t" + json.dumps(inf) + ",\n")
                 f.write(json.dumps(inf) + "\n")
-            #f.write("]")
         print(f"Saved inferences to {out_file}")
         print("Benchmark: AMBER done.")
         # Could do this in memory, but use artifacts on disk for now

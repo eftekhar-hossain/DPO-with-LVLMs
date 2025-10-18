@@ -12,7 +12,6 @@ class AmberEvaluator(Evaluator):
         self.image_path = os.path.join(self.data_path, "image")
         self.query_path = os.path.join(self.data_path, "query", f"query_{args.amber_set_name}.json")
         self.output_dir=args.output_dir
-        self.ratio = args.dataset_size_ratio
         self.output_size = args.token_output_size
         self.BINOMIAL_ANSWER_ID=1005
 

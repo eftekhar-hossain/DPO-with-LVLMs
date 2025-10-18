@@ -10,18 +10,16 @@ class AmberEvaluator(Evaluator):
     def __init__(self, args):
         self.data_path = os.path.join(args.amber_path, "data")
         self.image_path = os.path.join(self.data_path, "image")
-        self.query_path = os.path.join(self.data_path, "query")
+        self.query_path = os.path.join(self.data_path, "query", f"query_{args.amber_set_name}.json")
         self.output_dir=args.output_dir
         self.ratio = args.dataset_size_ratio
         self.output_size = args.token_output_size
         self.BINOMIAL_ANSWER_ID=1005
 
     def eval(self, model, processor):
-        # For our purposes, run entire benchmark
-        query_file = os.path.join(self.query_path, "query_all.json")
         inference_file = "amber_inf.jsonl"
 
-        with open(query_file, "r") as q:
+        with open(self.query_path, "r") as q:
             data = json.load(q)
 
         inferences = []
@@ -33,7 +31,6 @@ class AmberEvaluator(Evaluator):
             id = obj["id"]
             img = obj["image"]
             q = obj["query"]
-            
 
             image_path = os.path.join(self.image_path, img)
             image = Image.open(image_path).convert("RGB")

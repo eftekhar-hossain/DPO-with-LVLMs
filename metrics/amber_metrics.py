@@ -44,12 +44,17 @@ class AmberMetricParser(MetricParser):
         nouns = [lemmatizer.lemmatize(word) for word, pos in tagged if pos.startswith('NN')]
         return nouns
 
+    def parse_response(self, text):
+        # inference file contains whole chat - prompt, response and tags.
+        # Remove these for purposes of AMBER benchmarking 
+        responses = text.split("Assistant: ")
+        return responses[1]
+
     def __init__(self, args):
         self.nlp = spacy.load("en_core_web_lg")
         self.data_path = os.path.join(args.amber_path, "data")
         association_file = os.path.join(self.data_path, "relation.json")
         safewords_file = os.path.join(self.data_path, "safe_words.txt")
-        metrics_file = os.path.join(self.data_path, "metrics.txt")
         self.annotations_file = os.path.join(self.data_path, "annotations.json")
         self.sim_score = args.sim_score
         # parse word associations
@@ -67,19 +72,22 @@ class AmberMetricParser(MetricParser):
             for line in safe_file:
                 line = line.split('\n')[0]
                 self.global_safe_words.append(line)
-
-        # parse metrics
-        with open(metrics_file, "r") as file:
-            metric_file_lines = file.readlines()
+                
+        # metrics
         self.metrics = {}
-        for metric_line in metric_file_lines:
-            kv = metric_line.strip().split('=')
-            # metrics file is a list of key value pairs.
-            # TODO: add error logging for this file
-            if len(kv) == 2:
-                key = kv[0].strip()
-                val = eval(kv[1].strip())
-                self.metrics[key] = val
+        self.metrics['chair_score'] = 0
+        self.metrics['chair_num'] = 0
+        self.metrics['safe_cover_score'] = 0
+        self.metrics['safe_cover_num'] = 0
+        self.metrics['hallu_cover_score'] = 0
+        self.metrics['hallu_cover_num'] = 0
+        self.metrics['non_hallu_score'] = 0
+        self.metrics['non_hallu_num'] = 0
+        self.metrics['qa_num'] = 0
+        self.metrics['tp'] = 0
+        self.metrics['fn'] = 0
+        self.metrics['tn'] = 0
+        self.metrics['fp'] = 0
 
 
     def parse(self, args):
@@ -89,9 +97,9 @@ class AmberMetricParser(MetricParser):
         for i in tqdm(range(len(inference_data))):
             
             id = inference_data[i]['id']
-            
-            if ground_truth[id-1]['type'] == 'generative':
-                nouns = self.extract_nouns(inference_data[i]['response'])
+            response = self.parse_response(inference_data[i]['response'])
+            if ground_truth[id]['type'] == 'generative':
+                nouns = self.extract_nouns(response)
                 after_process_nouns = []
                 for noun in nouns:
                     if noun in self.hallucination_words:
@@ -99,23 +107,23 @@ class AmberMetricParser(MetricParser):
                 
                 safe_words = []
                 safe_list = []
-                for idx, word in enumerate(ground_truth[id-1]['truth']):
+                for idx, word in enumerate(ground_truth[id]['truth']):
                     safe_words += self.associations[word]
                     safe_list += [idx] * len(self.associations[word])
                     
                 ha_words = []
                 ha_list = []
-                for idx, word in enumerate(ground_truth[id-1]['hallu']):
+                for idx, word in enumerate(ground_truth[id]['hallu']):
                     ha_words += self.associations[word]
                     ha_list += [idx] * len(self.associations[word])
                 
-                safe_words += ground_truth[id-1]['truth']
-                safe_len = len(ground_truth[id-1]['truth'])
+                safe_words += ground_truth[id]['truth']
+                safe_len = len(ground_truth[id]['truth'])
                 safe_list += [0] * safe_len
                 safe_flag_list = [0] * len(after_process_nouns)
                 
-                ha_words += ground_truth[id-1]['hallu']
-                ha_len = len(ground_truth[id-1]['hallu'])
+                ha_words += ground_truth[id]['hallu']
+                ha_len = len(ground_truth[id]['hallu'])
                 ha_list += [0] * ha_len
                 
                 for idx, noun in enumerate(after_process_nouns):
@@ -174,87 +182,18 @@ class AmberMetricParser(MetricParser):
                 self.metrics['non_hallu_num'] += 1
             
             else:
-                self.metrics['qa_correct_num'] += 1
-                if ground_truth[id-1]['type'] == 'discriminative-attribute-state':
-                    self.metrics['as_qa_correct_num'] += 1
-                elif ground_truth[id-1]['type'] == 'discriminative-attribute-number':
-                    self.metrics['an_qa_correct_num'] += 1
-                elif ground_truth[id-1]['type'] == 'discriminative-attribute-action':
-                    self.metrics['aa_qa_correct_num'] += 1
-                elif ground_truth[id-1]['type'] == 'discriminative-hallucination':
-                    self.metrics['ha_qa_correct_num'] += 1
-                else:
-                    self.metrics['asso_qa_correct_num'] += 1
-                
-                truth = ground_truth[id-1]['truth']
-                response = inference_data[i]['response']
+                self.metrics['qa_num'] += 1
+                truth = ground_truth[id]['truth']
+                response = response
                 if truth == 'yes':
                     if response == 'Yes':
-                        self.metrics['qa_correct_score'] += 1
-                        if ground_truth[id-1]['type'] == 'discriminative-attribute-state':
-                            self.metrics['as_qa_correct_score'] += 1
-                        elif ground_truth[id-1]['type'] == 'discriminative-attribute-number':
-                            self.metrics['an_qa_correct_score'] += 1
-                        elif ground_truth[id-1]['type'] == 'discriminative-attribute-action':
-                            self.metrics['aa_qa_correct_score'] += 1
-                        elif ground_truth[id-1]['type'] == 'discriminative-hallucination':
-                            self.metrics['ha_qa_correct_score'] += 1
-                        else:
-                            self.metrics['asso_qa_correct_score'] += 1
+                        self.metrics['tp'] += 1
+                    else:
+                        self.metrics['fn'] += 1
                 else:
-                    self.metrics['qa_no_num'] += 1
-                    if ground_truth[id-1]['type'] == 'discriminative-attribute-state':
-                        self.metrics['as_qa_no_num'] += 1
-                    elif ground_truth[id-1]['type'] == 'discriminative-attribute-number':
-                        self.metrics['an_qa_no_num'] += 1
-                    elif ground_truth[id-1]['type'] == 'discriminative-attribute-action':
-                        self.metrics['aa_qa_no_num'] += 1
-                    elif ground_truth[id-1]['type'] == 'discriminative-hallucination':
-                        self.metrics['ha_qa_no_num'] += 1
-                    else:
-                        self.metrics['asso_qa_no_num'] += 1
-                    
                     if response == 'No':
-                        self.metrics['qa_correct_score'] += 1
-                        self.metrics['qa_no_score'] += 1
-                        if ground_truth[id-1]['type'] == 'discriminative-attribute-state':
-                            self.metrics['as_qa_correct_score'] += 1
-                            self.metrics['as_qa_no_score'] += 1
-                        elif ground_truth[id-1]['type'] == 'discriminative-attribute-number':
-                            self.metrics['an_qa_correct_score'] += 1
-                            self.metrics['an_qa_no_score'] += 1
-                        elif ground_truth[id-1]['type'] == 'discriminative-attribute-action':
-                            self.metrics['aa_qa_correct_score'] += 1
-                            self.metrics['aa_qa_no_score'] += 1
-                        elif ground_truth[id-1]['type'] == 'discriminative-hallucination':
-                            self.metrics['ha_qa_correct_score'] += 1
-                            self.metrics['ha_qa_no_score'] += 1
-                        else:
-                            self.metrics['asso_qa_correct_score'] += 1
-                            self.metrics['asso_qa_no_score'] += 1
-                
-                if response == 'No':
-                    self.metrics['qa_ans_no_num'] += 1
-                    if ground_truth[id-1]['type'] == 'discriminative-attribute-state':
-                        self.metrics['as_qa_ans_no_num'] += 1
-                    elif ground_truth[id-1]['type'] == 'discriminative-attribute-number':
-                        self.metrics['an_qa_ans_no_num'] += 1
-                    elif ground_truth[id-1]['type'] == 'discriminative-attribute-action':
-                        self.metrics['aa_qa_ans_no_num'] += 1
-                    elif ground_truth[id-1]['type'] == 'discriminative-hallucination':
-                        self.metrics['ha_qa_ans_no_num'] += 1
+                        self.metrics['tn'] += 1
                     else:
-                        self.metrics['asso_qa_ans_no_num'] += 1
-                    if truth == 'no':
-                        self.metrics['qa_ans_no_score'] += 1
-                        if ground_truth[id-1]['type'] == 'discriminative-attribute-state':
-                            self.metrics['as_qa_ans_no_score'] += 1
-                        elif ground_truth[id-1]['type'] == 'discriminative-attribute-number':
-                            self.metrics['an_qa_ans_no_score'] += 1
-                        elif ground_truth[id-1]['type'] == 'discriminative-attribute-action':
-                            self.metrics['aa_qa_ans_no_score'] += 1
-                        elif ground_truth[id-1]['type'] == 'discriminative-hallucination':
-                            self.metrics['ha_qa_ans_no_score'] += 1
-                        else:
-                            self.metrics['asso_qa_ans_no_score'] += 1
+                        self.metrics['fp'] += 1
+
         return self.metrics

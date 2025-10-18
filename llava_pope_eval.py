@@ -65,6 +65,10 @@ if __name__ == "__main__":
                         help="Which POPE split to evaluate")
     parser.add_argument("--sim_score", type=float, default=0.8)
     parser.add_argument("--amber_path", type=str, help="Path to AMBER submodule")
+    parser.add_argument("--token_output_size", type=int, help="The size of the output, default to 512", default=512)
+    parser.add_argument("--dataset_size_ratio", type=float,
+                         help="Percent of data samples to take from each dataset in a benchmark[0.0,1.0]",
+                         default=1.0)
     args = parser.parse_args()
 
     # Could split this out to another function
